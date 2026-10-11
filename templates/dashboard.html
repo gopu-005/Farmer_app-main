@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your AI Farming Co-Pilot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        .bg-particles { position: fixed; width: 100%; height: 100%; overflow: hidden; z-index: 0; pointer-events: none; }
+        .particle { position: absolute; background: rgba(255, 255, 255, 0.1); border-radius: 50%; animation: float 8s ease-in-out infinite; }
+        @keyframes float { 0%, 100% { transform: translateY(0px); opacity: 0.3; } 50% { transform: translateY(-20px); opacity: 0.8; } }
+        .glass-card { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1); }
+        .secondary-btn { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); backdrop-filter: blur(10px); }
+        .secondary-btn:hover { background: rgba(255, 255, 255, 0.2); }
+        .text-glow { text-shadow: 0 0 20px rgba(255, 255, 255, 0.5); }
+        .loading-spinner { border: 4px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top: 4px solid #fff; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .card-enter-animation { animation: card-enter 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards; opacity: 0; transform: translateY(20px); }
+        @keyframes card-enter { to { opacity: 1; transform: translateY(0); } }
+        .tab-btn { transition: all 0.3s; }
+        .tab-btn.active { background-color: rgba(255, 255, 255, 0.2); font-weight: 600; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .workflow-content::-webkit-scrollbar { width: 6px; }
+        .workflow-content::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.1); }
+        .workflow-content::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); border-radius: 3px; }
+    </style>
+</head>
+<body class="text-white">
+    <div class="bg-particles"></div>
+
+    <!-- Header -->
+    <header class="fixed top-0 left-0 w-full p-4 z-50 flex justify-between items-center">
+        <div class="font-bold text-xl text-glow">🌱 AI Farming Co-Pilot</div>
+        <div class="flex items-center space-x-2">
+            <a href="/prediction" class="secondary-btn px-4 py-2 rounded-xl text-sm font-medium transition-all">Analyze Disease</a>
+            <button id="signOutBtn" class="secondary-btn px-4 py-2 rounded-xl text-sm font-medium transition-all">Sign Out</button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="dashboardContent" class="relative z-10 min-h-screen flex flex-col items-center justify-center p-4 pt-24 sm:pt-20 hidden">
+        <div class="w-full max-w-7xl mx-auto space-y-6">
+            
+            <!-- Top Row: Weather -->
+            <div class="glass-card p-6 rounded-3xl card-enter-animation">
+                <h2 class="text-xl font-bold mb-4 text-white/90">Live Weather at <span id="locationName" class="text-glow">...</span></h2>
+                <div id="weatherContent" class="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
+                    <div class="text-center sm:text-left">
+                        <p class="text-5xl sm:text-6xl font-bold text-glow" id="temperature">--°C</p>
+                        <p class="text-white/80 font-medium" id="weatherDescription">Loading...</p>
+                    </div>
+                    <div class="w-24 h-24 sm:w-32 sm:h-32 flex items-center justify-center">
+                        <img id="weatherIcon" src="https://placehold.co/128x128/ffffff/000000?text=☀️" alt="Weather icon" class="w-full h-full">
+                    </div>
+                    <div class="grid grid-cols-3 gap-x-6 gap-y-3 text-center sm:text-left">
+                        <div><p class="font-semibold text-lg" id="humidity">--%</p><p class="text-sm text-white/70">Humidity</p></div>
+                        <div><p class="font-semibold text-lg" id="windSpeed">-- km/h</p><p class="text-sm text-white/70">Wind</p></div>
+                        <div><p class="font-semibold text-lg" id="feelsLike">--°C</p><p class="text-sm text-white/70">Feels Like</p></div>
+                        <div><p class="font-semibold text-lg" id="uvIndex">--</p><p class="text-sm text-white/70">UV Index</p></div>
+                        <div><p class="font-semibold text-lg" id="sunrise">--:--</p><p class="text-sm text-white/70">Sunrise</p></div>
+                        <div><p class="font-semibold text-lg" id="sunset">--:--</p><p class="text-sm text-white/70">Sunset</p></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Second Row: Controls and Log -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="glass-card p-6 rounded-3xl card-enter-animation flex flex-col justify-between" style="animation-delay: 0.1s;">
+                     <div>
+                        <label for="plotSelector" class="block text-sm font-medium text-white/80 mb-1">Select Plot</label>
+                        <select id="plotSelector" class="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-white/50 mb-2"></select>
+                        <label for="cropSelector" class="block text-sm font-medium text-white/80 mb-1">Select Crop</label>
+                        <select id="cropSelector" class="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-white/50"></select>
+                    </div>
+                    <div class="pt-4 flex gap-2">
+                         <a href="/onboarding" class="flex-1 text-center secondary-btn px-4 py-3 rounded-xl font-semibold transition-all">⚙️ Plot</a>
+                         <a href="/history" class="flex-1 text-center secondary-btn px-4 py-3 rounded-xl font-semibold transition-all">📜 History</a>
+                    </div>
+                </div>
+                 <div class="glass-card p-6 rounded-3xl card-enter-animation" style="animation-delay: 0.2s;">
+                    <h3 class="text-lg font-bold mb-2">📝 Today's Work Log</h3>
+                    <textarea class="w-full bg-white/10 rounded-xl p-2 text-sm focus:outline-none h-24" placeholder="e.g., Watered today, noticed some yellowing on lower leaves..."></textarea>
+                    <button class="w-full mt-2 secondary-btn py-2 rounded-xl font-semibold">Log Progress</button>
+                </div>
+            </div>
+
+            <!-- Third Row: Graphs -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="glass-card p-6 rounded-3xl card-enter-animation" style="animation-delay: 0.3s;">
+                    <h3 class="text-lg font-bold mb-2">📈 AI Price Trend</h3>
+                    <div class="h-64"><canvas id="priceChart"></canvas></div>
+                </div>
+                <div class="glass-card p-6 rounded-3xl card-enter-animation" style="animation-delay: 0.4s;">
+                    <h3 class="text-lg font-bold mb-2">🌡️ 7-Day Temp Trend</h3>
+                    <div class="h-64"><canvas id="tempChart"></canvas></div>
+                </div>
+            </div>
+
+            <!-- Fourth Row: AI Workflow -->
+            <div class="glass-card p-6 rounded-3xl card-enter-animation flex flex-col" style="animation-delay: 0.5s;">
+                <h2 class="text-2xl font-bold mb-1">AI-Generated Workflow for <span id="cropNameDisplay" class="text-glow">...</span></h2>
+                <p class="text-white/70 mb-4">Currently in: <span id="currentWeekDisplay" class="font-semibold">Week X-Y</span></p>
+                <div id="workflowTabs" class="flex border-b border-white/20 mb-4">
+                    <button class="tab-btn active px-4 py-2" data-tab="irrigation">Irrigation</button>
+                    <button class="tab-btn px-4 py-2" data-tab="fertilizer">Fertilizer</button>
+                    <button class="tab-btn px-4 py-2" data-tab="pest_control">Pest Control</button>
+                    <button class="tab-btn px-4 py-2" data-tab="general_tasks">General</button>
+                </div>
+                <div id="workflowContent" class="workflow-content flex-1 overflow-y-auto pr-2 h-48">
+                    <div id="irrigationContent" class="tab-content active"><p>Loading...</p></div>
+                    <div id="fertilizerContent" class="tab-content"><p>Loading...</p></div>
+                    <div id="pest_controlContent" class="tab-content"><p>Loading...</p></div>
+                    <div id="general_tasksContent" class="tab-content"><p>Loading...</p></div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+    
+    <!-- Loading State -->
+    <div id="loadingState" class="min-h-screen flex flex-col items-center justify-center text-center">
+        <div class="loading-spinner"></div>
+        <p class="mt-4 text-lg font-semibold">Loading your AI Co-Pilot...</p>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.2/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.0.2/firebase-auth.js";
+        const firebaseConfig = { apiKey: "AIzaSyBPQKIv9hyVZRRwXm-D4w3J_WYblGl0eSg", authDomain: "farmer-app-c93e9.firebaseapp.com", projectId: "farmer-app-c93e9", storageBucket: "farmer-app-c93e9.firebasestorage.app", messagingSenderId: "25818831885", appId: "1:25818831885:web:9f2e961f3d35b37002c944" };
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        let currentUser = null;
+        let allPlotsData = [];
+        let priceChartInstance, tempChartInstance;
+
+        const loadingState = document.getElementById('loadingState');
+        const dashboardContent = document.getElementById('dashboardContent');
+        const plotSelector = document.getElementById('plotSelector');
+        const cropSelector = document.getElementById('cropSelector');
+        const cropNameDisplay = document.getElementById('cropNameDisplay');
+        const currentWeekDisplay = document.getElementById('currentWeekDisplay');
+        const workflowTabs = document.getElementById('workflowTabs');
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                await fetchAndRenderDashboard();
+            } else {
+                window.location.replace('/login');
+            }
+        });
+
+        async function fetchAndRenderDashboard(plotId = null, cropId = null) {
+            if (!currentUser) return;
+            loadingState.classList.remove('hidden');
+            dashboardContent.classList.add('hidden');
+
+            try {
+                const token = await currentUser.getIdToken();
+                let url = '/api/dashboard-data';
+                const params = new URLSearchParams();
+                if (plotId) params.append('plot_id', plotId);
+                if (cropId) params.append('crop_id', cropId);
+                if (params.toString()) url += `?${params.toString()}`;
+
+                const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+                if (response.status === 404) { window.location.replace('/onboarding'); return; }
+                if (!response.ok) throw new Error('Failed to load dashboard data.');
+                const data = await response.json();
+                
+                allPlotsData = data.all_plots;
+                
+                const selectedPlotId = plotId || (allPlotsData[0]?.id || null);
+                populatePlotSelector(selectedPlotId);
+                
+                const selectedPlot = allPlotsData.find(p => p.id === selectedPlotId) || allPlotsData[0];
+                const selectedPlotIndex = allPlotsData.indexOf(selectedPlot);
+                const selectedCropId = cropId || (selectedPlot?.crops?.[0]?.crop_id || null);
+                populateCropSelector(selectedPlotIndex, selectedCropId);
+                
+                updateGeneralWeather(data.weather_forecast);
+                drawPriceChart(data.price_trend);
+                drawTempChart(data.temp_trend);
+                
+                const selectedCropIndex = selectedCropId ? (selectedPlot?.crops?.findIndex(c => c.crop_id === selectedCropId) ?? 0) : 0;
+                updateCropSpecificUI(selectedPlotIndex, selectedCropIndex);
+
+            } catch (error) {
+                console.error("Dashboard loading error:", error);
+                loadingState.innerHTML = `<p class="text-red-300">Could not load dashboard data. Please try again.</p>`;
+            } finally {
+                loadingState.classList.add('hidden');
+                dashboardContent.classList.remove('hidden');
+            }
+        }
+
+        function populatePlotSelector(selectedPlotId) {
+            plotSelector.innerHTML = '';
+            allPlotsData.forEach(plot => {
+                const option = document.createElement('option');
+                option.value = plot.id;
+                option.textContent = plot.name;
+                if (plot.id === selectedPlotId) {
+                    option.selected = true;
+                }
+                plotSelector.appendChild(option);
+            });
+        }
+
+        function populateCropSelector(plotIndex, selectedCropId) {
+            cropSelector.innerHTML = '';
+            const crops = allPlotsData[plotIndex]?.crops || [];
+            if (crops.length === 0) {
+                const option = document.createElement('option');
+                option.textContent = "No crops on this plot";
+                cropSelector.appendChild(option);
+                handleNoCrops();
+                return;
+            }
+            crops.forEach(crop => {
+                const option = document.createElement('option');
+                option.value = crop.crop_id;
+                option.textContent = crop.crop_name;
+                 if (crop.crop_id === selectedCropId) {
+                    option.selected = true;
+                 }
+                cropSelector.appendChild(option);
+            });
+        }
+
+        function updateGeneralWeather(weather) {
+             if (weather && !weather.error) {
+                document.getElementById('locationName').textContent = weather.location.name;
+                document.getElementById('temperature').textContent = `${Math.round(weather.current.temp_c)}°C`;
+                document.getElementById('weatherDescription').textContent = weather.current.condition.text;
+                document.getElementById('weatherIcon').src = `https:${weather.current.condition.icon}`;
+                document.getElementById('humidity').textContent = `${weather.current.humidity}%`;
+                document.getElementById('windSpeed').textContent = `${weather.current.wind_kph} km/h`;
+                document.getElementById('feelsLike').textContent = `${Math.round(weather.current.feelslike_c)}°C`;
+                document.getElementById('uvIndex').textContent = weather.current.uv;
+                const forecastDay = weather.forecast?.forecastday?.[0];
+                if(forecastDay) {
+                    document.getElementById('sunrise').textContent = forecastDay.astro.sunrise;
+                    document.getElementById('sunset').textContent = forecastDay.astro.sunset;
+                }
+            }
+        }
+
+        function updateCropSpecificUI(plotIndex, cropIndex) {
+            const plot = allPlotsData[plotIndex];
+            if (!plot || !plot.crops || plot.crops.length === 0) {
+                handleNoCrops();
+                return;
+            }
+            const crop = plot.crops[cropIndex];
+            if (!crop) {
+                handleNoCrops();
+                return;
+            }
+
+            cropNameDisplay.textContent = crop.crop_name;
+
+            const sowingDate = new Date(crop.sowing_date);
+            const today = new Date();
+            const diffTime = Math.abs(today - sowingDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const currentWeek = Math.max(1, Math.ceil(diffDays / 7));
+
+            const workflow = crop.ai_workflow;
+            let matchingKey = "N/A";
+
+            if (workflow && typeof workflow === 'object' && !workflow.error) {
+                const weekKeys = Object.keys(workflow);
+                matchingKey = weekKeys.find(key => {
+                    if (!key.toLowerCase().startsWith('week')) return false;
+                    const parts = key.replace('Week ', '').split('-').map(Number);
+                    return currentWeek >= parts[0] && currentWeek <= (parts[1] || parts[0]);
+                }) || weekKeys[0] || "N/A";
+            }
+           
+            currentWeekDisplay.textContent = `${matchingKey} (Current: Week ${currentWeek})`;
+
+            const tasks = workflow[matchingKey] || { error: "No tasks found for this week." };
+            document.getElementById('irrigationContent').innerHTML = `<p>${tasks.irrigation || 'N/A'}</p>`;
+            document.getElementById('fertilizerContent').innerHTML = `<p>${tasks.fertilizer || 'N/A'}</p>`;
+            document.getElementById('pest_controlContent').innerHTML = `<p>${tasks.pest_control || 'N/A'}</p>`;
+            document.getElementById('general_tasksContent').innerHTML = `<p>${tasks.general_tasks || 'N/A'}</p>`;
+        }
+        
+        function handleNoCrops() {
+            cropNameDisplay.textContent = "No Crop Selected";
+            currentWeekDisplay.textContent = "N/A";
+            const noCropMessage = `<p class="text-white/60 p-4">You haven't added any crops to this plot yet. Go to 'Plot' to manage your farm.</p>`;
+            document.getElementById('irrigationContent').innerHTML = noCropMessage;
+            document.getElementById('fertilizerContent').innerHTML = noCropMessage;
+            document.getElementById('pest_controlContent').innerHTML = noCropMessage;
+            document.getElementById('general_tasksContent').innerHTML = noCropMessage;
+        }
+
+        function drawPriceChart(data) {
+            if (!data || data.length === 0) return;
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            if (priceChartInstance) priceChartInstance.destroy();
+            priceChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => d.week.replace(/20\d{2}-W/, 'W')),
+                    datasets: [{
+                        label: 'Est. Price (INR/kg)',
+                        data: data.map(d => d.price),
+                        borderColor: 'rgba(192, 132, 252, 1)',
+                        backgroundColor: 'rgba(192, 132, 252, 0.2)',
+                        fill: true,
+                        tension: 0.4,
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { color: '#FFF' } }, x: { ticks: { color: '#FFF' } } } }
+            });
+        }
+
+        function drawTempChart(data) {
+            if (!data || data.length === 0) return;
+            const ctx = document.getElementById('tempChart').getContext('2d');
+            if (tempChartInstance) tempChartInstance.destroy();
+            tempChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => new Date(d.date).toLocaleDateString('en-US', { weekday: 'short' })),
+                    datasets: [
+                        { label: 'Max Temp (°C)', data: data.map(d => d.max_temp), borderColor: 'rgba(251, 146, 60, 1)', tension: 0.4 },
+                        { label: 'Min Temp (°C)', data: data.map(d => d.min_temp), borderColor: 'rgba(59, 130, 246, 1)', tension: 0.4 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { color: '#FFF' } }, x: { ticks: { color: '#FFF' } } } }
+            });
+        }
+
+        plotSelector.addEventListener('change', (e) => {
+            const plotId = e.target.value;
+            const plot = allPlotsData.find(p => p.id === plotId);
+            const cropId = plot?.crops?.[0]?.crop_id || null;
+            fetchAndRenderDashboard(plotId, cropId);
+        });
+        cropSelector.addEventListener('change', (e) => {
+            const plotId = plotSelector.value;
+            const cropId = e.target.value;
+            fetchAndRenderDashboard(plotId, cropId);
+        });
+        workflowTabs.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                e.target.classList.add('active');
+                document.getElementById(`${e.target.dataset.tab}Content`).classList.add('active');
+            }
+        });
+        document.getElementById('signOutBtn').addEventListener('click', async () => {
+            try { await signOut(auth); window.location.href = '/login'; } catch (error) { console.error('Sign out error:', error); }
+        });
+
+        function createParticles() {
+            const container = document.querySelector('.bg-particles');
+            if (container.children.length > 0) return;
+            for (let i = 0; i < 25; i++) { const p = document.createElement('div'); p.className = 'particle'; p.style.cssText = `left:${Math.random()*100}%; top:${Math.random()*100}%; width:${Math.random()*6+4}px; height:${p.style.width}; animation-delay:${Math.random()*8}s; animation-duration:${Math.random()*6+6}s;`; container.appendChild(p); }
+        }
+        createParticles();
+    </script>
+</body>
+</ht
