@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loading Your Farm...</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid #fff;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen text-white">
+
+    <div class="text-center space-y-4">
+        <div class="spinner mx-auto"></div>
+        <p class="text-lg font-semibold">Loading Your Farm Dashboard...</p>
+    </div>
+
+    <!-- 
+      This page is the new "bouncer" for your app. Its only job is to:
+      1. Initialize Firebase and check the user's login status.
+      2. If the user isn't logged in, it sends them to /login.
+      3. If they ARE logged in, it checks if they have set up their farm yet by calling a new API endpoint (`/api/user-status`).
+      4. Based on the response, it redirects them to either the `/onboarding` page (for new users) or the `/dashboard` page (for existing users).
+      The user will only see this page for a split second.
+    -->
+
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.2/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.0.2/firebase-auth.js";
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBPQKIv9hyVZRRwXm-D4w3J_WYblGl0eSg",
+            authDomain: "farmer-app-c93e9.firebaseapp.com",
+            projectId: "farmer-app-c93e9",
+            storageBucket: "farmer-app-c93e9.firebasestorage.app",
+            messagingSenderId: "25818831885",
+            appId: "1:25818831885:web:9f2e961f3d35b37002c944",
+            measurementId: "G-HJNMYGF6ZJ"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // Listen for authentication state changes
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                // User is signed in. Now, let's check if they've completed onboarding.
+                try {
+                    // Get the user's ID token to authenticate with our backend
+                    const token = await user.getIdToken();
+                    
+                    // We will create this new backend endpoint in app.py next.
+                    // It will check if the user has a 'lands' field in their Firestore document.
+                    const response = await fetch('/api/user-status', {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Could not verify user status.');
+                    }
+
+                    const data = await response.json();
+
+                    // The backend will tell us where to go.
+                    if (data.has_onboarded) {
+                        // User has land data, send them to the main dashboard.
+                        window.location.replace('/dashboard');
+                    } else {
+                        // This is a new user, send them to the onboarding page to set up their farm.
+                        window.location.replace('/onboarding');
+                    }
+
+                } catch (error) {
+                    console.error("Redirection Error:", error);
+                    // If something goes wrong, maybe just send them to the dashboard as a fallback.
+                    window.location.replace('/dashboard');
+                }
+
+            } else {
+                // User is not signed in. Redirect them to the login page.
+                window.location.replace('/login');
+            }
+        });
+    </script>
+
+</body>
+</html>
